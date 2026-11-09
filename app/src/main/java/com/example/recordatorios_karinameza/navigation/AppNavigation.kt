@@ -4,9 +4,14 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -19,16 +24,15 @@ import androidx.navigation.navArgument
 import com.example.recordatorios_karinameza.ui.screens.CrearRecordatorioScreen
 import com.example.recordatorios_karinameza.ui.screens.DetalleRecordatorioScreen
 import com.example.recordatorios_karinameza.ui.screens.ListadoScreen
+import com.example.recordatorios_karinameza.ui.screens.PreferenciasScreen
+import com.example.recordatorios_karinameza.viewmodel.CrudUiState
 import com.example.recordatorios_karinameza.viewmodel.DetalleUiState
 import com.example.recordatorios_karinameza.viewmodel.RecordatoriosViewModel
-import androidx.compose.material3.Button
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
 
 sealed class AppRoute(val route: String) {
     data object Listado : AppRoute("listado")
     data object Crear : AppRoute("crear")
+    data object Configuracion : AppRoute("configuracion")
     data object Detalle : AppRoute("detalle/{recordatorioId}") {
         fun crearRuta(id: Int): String {
             return "detalle/$id"
@@ -51,6 +55,17 @@ fun AppNavigation(
     val detalleUiState by
     viewModel.detalleUiState.collectAsStateWithLifecycle()
 
+    val preferencias by
+    viewModel.preferenciasUiState.collectAsStateWithLifecycle()
+
+    val crudUiState by
+    viewModel.crudUiState.collectAsStateWithLifecycle()
+
+    val rutaActual = navController.currentBackStackEntry?.destination?.route
+    val enModoEdicion = remember(rutaActual) {
+        false
+    }
+
     LaunchedEffect(formularioUiState.guardadoExitoso) {
         if (formularioUiState.guardadoExitoso) {
             viewModel.limpiarFormulario()
@@ -58,28 +73,57 @@ fun AppNavigation(
         }
     }
 
+    LaunchedEffect(crudUiState) {
+        if (crudUiState == CrudUiState.Exito) {
+            navController.popBackStack()
+            viewModel.limpiarCrudUiState()
+        }
+    }
+
     NavHost(
         navController = navController,
         startDestination = AppRoute.Listado.route
     ) {
+
         composable(AppRoute.Listado.route) {
             ListadoScreen(
                 uiState = listadoUiState,
                 onCrearRecordatorio = {
+                    viewModel.limpiarFormulario()
                     navController.navigate(AppRoute.Crear.route)
                 },
                 onRecordatorioClick = { id ->
+                    viewModel.limpiarCrudUiState()
                     navController.navigate(
                         AppRoute.Detalle.crearRuta(id)
                     )
                 },
                 onReintentar = {
                     viewModel.cargarRecordatorios()
+                },
+                onConfiguracion = {
+                    navController.navigate(AppRoute.Configuracion.route)
+                }
+            )
+        }
+
+        composable(AppRoute.Configuracion.route) {
+            PreferenciasScreen(
+                preferencias = preferencias,
+                onTemaChange = viewModel::actualizarTema,
+                onMostrarCompletadosChange =
+                    viewModel::actualizarMostrarCompletados,
+                onOrdenamientoChange =
+                    viewModel::actualizarOrdenamiento,
+                onVolver = {
+                    navController.popBackStack()
                 }
             )
         }
 
         composable(AppRoute.Crear.route) {
+            val editando = viewModel.estaEditando()
+
             CrearRecordatorioScreen(
                 uiState = formularioUiState,
                 onTituloChange = viewModel::actualizarTitulo,
@@ -90,7 +134,8 @@ fun AppNavigation(
                 onVolver = {
                     viewModel.limpiarFormulario()
                     navController.popBackStack()
-                }
+                },
+                modoEdicion = editando
             )
         }
 
@@ -111,6 +156,7 @@ fun AppNavigation(
             }
 
             when (val estado = detalleUiState) {
+
                 is DetalleUiState.Cargando -> {
                     Scaffold { innerPadding ->
                         Box(
@@ -129,6 +175,13 @@ fun AppNavigation(
                         recordatorio = estado.recordatorio,
                         onVolver = {
                             navController.popBackStack()
+                        },
+                        onEditar = { recordatorio ->
+                            viewModel.prepararEdicion(recordatorio)
+                            navController.navigate(AppRoute.Crear.route)
+                        },
+                        onEliminar = { id ->
+                            viewModel.eliminarRecordatorio(id)
                         }
                     )
                 }
@@ -138,7 +191,9 @@ fun AppNavigation(
                         recordatorio = null,
                         onVolver = {
                             navController.popBackStack()
-                        }
+                        },
+                        onEditar = {},
+                        onEliminar = {}
                     )
                 }
 

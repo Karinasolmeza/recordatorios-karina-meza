@@ -1,3 +1,4 @@
+
 package com.example.recordatorios_karinameza.ui.screens
 
 import androidx.compose.foundation.layout.Arrangement
@@ -35,13 +36,27 @@ fun CrearRecordatorioScreen(
     onCategoriaChange: (Categoria) -> Unit,
     onPrioridadChange: (Prioridad) -> Unit,
     onGuardar: () -> Unit,
-    onVolver: () -> Unit
+    onVolver: () -> Unit,
+    modoEdicion: Boolean = false
 ) {
+    val tituloPantalla = if (modoEdicion) {
+        "Editar recordatorio"
+    } else {
+        "Crear recordatorio"
+    }
+
+    val textoBoton = when {
+        uiState.enviando && modoEdicion -> "Actualizando..."
+        uiState.enviando -> "Guardando..."
+        modoEdicion -> "Actualizar"
+        else -> "Guardar"
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
                 title = {
-                    Text("Crear recordatorio")
+                    Text(tituloPantalla)
                 },
                 navigationIcon = {
                     TextButton(onClick = onVolver) {
@@ -51,7 +66,6 @@ fun CrearRecordatorioScreen(
             )
         }
     ) { innerPadding ->
-
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -60,7 +74,6 @@ fun CrearRecordatorioScreen(
                 .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-
             OutlinedTextField(
                 value = uiState.titulo,
                 onValueChange = onTituloChange,
@@ -198,7 +211,11 @@ fun CrearRecordatorioScreen(
 
             if (uiState.guardadoExitoso) {
                 Text(
-                    text = "¡Recordatorio guardado correctamente!",
+                    text = if (modoEdicion) {
+                        "¡Recordatorio actualizado correctamente!"
+                    } else {
+                        "¡Recordatorio guardado correctamente!"
+                    },
                     color = MaterialTheme.colorScheme.primary
                 )
             }
@@ -208,13 +225,7 @@ fun CrearRecordatorioScreen(
                 enabled = uiState.esValido && !uiState.enviando,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Text(
-                    if (uiState.enviando) {
-                        "Guardando..."
-                    } else {
-                        "Guardar"
-                    }
-                )
+                Text(textoBoton)
             }
 
             TextButton(

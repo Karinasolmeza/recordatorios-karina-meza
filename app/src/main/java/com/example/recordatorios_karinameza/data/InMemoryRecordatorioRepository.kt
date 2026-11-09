@@ -1,4 +1,3 @@
-
 package com.example.recordatorios_karinameza.data
 
 import com.example.recordatorios_karinameza.Recordatorio

@@ -1,22 +1,31 @@
+
 package com.example.recordatorios_karinameza.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
+import com.example.recordatorios_karinameza.data.PreferenciasRepository
 import com.example.recordatorios_karinameza.data.RecordatorioRepository
 
 class RecordatoriosViewModelFactory(
-    private val repository: RecordatorioRepository
+    private val repository: RecordatorioRepository,
+    private val preferenciasRepository: PreferenciasRepository,
+    private val programarSincronizacion: () -> Unit
 ) : ViewModelProvider.Factory {
 
-    override fun <T : ViewModel> create(modelClass: Class<T>): T {
-
+    @Suppress("UNCHECKED_CAST")
+    override fun <T : ViewModel> create(
+        modelClass: Class<T>
+    ): T {
         if (modelClass.isAssignableFrom(RecordatoriosViewModel::class.java)) {
-            @Suppress("UNCHECKED_CAST")
-            return RecordatoriosViewModel(repository) as T
+            return RecordatoriosViewModel(
+                repository = repository,
+                preferenciasRepository = preferenciasRepository,
+                programarSincronizacion = programarSincronizacion
+            ) as T
         }
 
         throw IllegalArgumentException(
-            "ViewModel desconocido: ${modelClass.name}"
+            "ViewModel no reconocido: ${modelClass.name}"
         )
     }
 }

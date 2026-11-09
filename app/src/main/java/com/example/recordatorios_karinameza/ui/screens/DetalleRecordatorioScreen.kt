@@ -1,3 +1,4 @@
+
 package com.example.recordatorios_karinameza.ui.screens
 
 import androidx.compose.foundation.layout.Arrangement
@@ -6,13 +7,20 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.example.recordatorios_karinameza.Recordatorio
@@ -21,12 +29,20 @@ import com.example.recordatorios_karinameza.Recordatorio
 @Composable
 fun DetalleRecordatorioScreen(
     recordatorio: Recordatorio?,
-    onVolver: () -> Unit
+    onVolver: () -> Unit,
+    onEditar: (Recordatorio) -> Unit,
+    onEliminar: (Int) -> Unit
 ) {
+    var mostrarConfirmacion by remember {
+        mutableStateOf(false)
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Detalle del recordatorio") }
+                title = {
+                    Text("Detalle del recordatorio")
+                }
             )
         }
     ) { padding ->
@@ -49,20 +65,87 @@ fun DetalleRecordatorioScreen(
                             text = recordatorio.titulo,
                             style = MaterialTheme.typography.titleLarge
                         )
-                        Text("Descripción: ${recordatorio.descripcion ?: "Sin descripción"}")
-                        Text("Categoría: ${recordatorio.categoria.etiqueta}")
-                        Text("Prioridad: ${recordatorio.prioridad.etiqueta}")
-                        Text("Estado: ${recordatorio.estado.etiqueta}")
+
+                        Text(
+                            "Descripción: ${
+                                recordatorio.descripcion ?: "Sin descripción"
+                            }"
+                        )
+
+                        Text(
+                            "Categoría: ${recordatorio.categoria.etiqueta}"
+                        )
+
+                        Text(
+                            "Prioridad: ${recordatorio.prioridad.etiqueta}"
+                        )
+
+                        Text(
+                            "Estado: ${recordatorio.estado.etiqueta}"
+                        )
+
                         Text("ID: ${recordatorio.id}")
                     }
                 }
-            }
 
-            Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Button(
+                    onClick = {
+                        onEditar(recordatorio)
+                    }
+                ) {
+                    Text("Editar recordatorio")
+                }
+
+                OutlinedButton(
+                    onClick = {
+                        mostrarConfirmacion = true
+                    }
+                ) {
+                    Text("Eliminar recordatorio")
+                }
+            }
 
             Button(onClick = onVolver) {
                 Text("Volver")
             }
         }
+    }
+
+    if (mostrarConfirmacion && recordatorio != null) {
+        AlertDialog(
+            onDismissRequest = {
+                mostrarConfirmacion = false
+            },
+            title = {
+                Text("Eliminar recordatorio")
+            },
+            text = {
+                Text(
+                    "¿Estás segura de que deseas eliminar " +
+                            "\"${recordatorio.titulo}\"?"
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        mostrarConfirmacion = false
+                        onEliminar(recordatorio.id)
+                    }
+                ) {
+                    Text("Eliminar")
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = {
+                        mostrarConfirmacion = false
+                    }
+                ) {
+                    Text("Cancelar")
+                }
+            }
+        )
     }
 }
