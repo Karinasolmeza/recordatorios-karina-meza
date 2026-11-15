@@ -10,18 +10,18 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.RadioButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
-import com.example.recordatorios_karinameza.data.PreferenciasAplicacion
 import com.example.recordatorios_karinameza.data.OrdenamientoRecordatorios
+import com.example.recordatorios_karinameza.data.PreferenciasAplicacion
 
 @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
@@ -30,7 +30,8 @@ fun PreferenciasScreen(
     onTemaChange: (Boolean) -> Unit,
     onMostrarCompletadosChange: (Boolean) -> Unit,
     onOrdenamientoChange: (OrdenamientoRecordatorios) -> Unit,
-    onVolver: () -> Unit
+    onVolver: () -> Unit,
+    onCerrarSesion: () -> Unit = {}
 ) {
     Scaffold(
         topBar = {
@@ -39,7 +40,6 @@ fun PreferenciasScreen(
             )
         }
     ) { innerPadding ->
-
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -47,7 +47,6 @@ fun PreferenciasScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-
             Card(
                 colors = CardDefaults.cardColors(
                     containerColor = Color(0xFF30343B),
@@ -139,6 +138,13 @@ fun PreferenciasScreen(
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Text("Volver")
+            }
+
+            Button(
+                onClick = onCerrarSesion,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("Cerrar sesión")
             }
         }
     }

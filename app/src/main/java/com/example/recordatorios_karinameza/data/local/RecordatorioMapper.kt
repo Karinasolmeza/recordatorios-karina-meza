@@ -32,7 +32,8 @@ fun RecordatorioEntity.toDomain(): Recordatorio {
         identificadorCliente = identificadorCliente,
         identificadorRemoto = identificadorRemoto,
         pendienteSincronizacion = pendienteSincronizacion,
-        eliminadoPendienteSincronizacion = eliminadoPendienteSincronizacion
+        eliminadoPendienteSincronizacion = eliminadoPendienteSincronizacion,
+        propietarioUid = propietarioUid
     )
 }
 
@@ -49,6 +50,7 @@ fun Recordatorio.toEntity(): RecordatorioEntity {
         identificadorCliente = identificadorCliente,
         identificadorRemoto = identificadorRemoto,
         pendienteSincronizacion = pendienteSincronizacion,
-        eliminadoPendienteSincronizacion = eliminadoPendienteSincronizacion
+        eliminadoPendienteSincronizacion = eliminadoPendienteSincronizacion,
+        propietarioUid = propietarioUid
     )
 }

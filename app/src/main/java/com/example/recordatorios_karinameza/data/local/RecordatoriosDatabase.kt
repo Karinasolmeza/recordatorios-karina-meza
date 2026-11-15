@@ -1,3 +1,4 @@
+
 package com.example.recordatorios_karinameza.data.local
 
 import android.content.Context
@@ -9,7 +10,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 
 @Database(
     entities = [RecordatorioEntity::class],
-    version = 3,
+    version = 4,
     exportSchema = false
 )
 abstract class RecordatoriosDatabase : RoomDatabase() {
@@ -64,7 +65,30 @@ abstract class RecordatoriosDatabase : RoomDatabase() {
             }
         }
 
-        fun obtenerInstancia(context: Context): RecordatoriosDatabase {
+        private val MIGRATION_3_4 = object : Migration(3, 4) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    """
+                    ALTER TABLE recordatorios
+                    ADD COLUMN propietarioUid TEXT
+                    """.trimIndent()
+                )
+
+                db.execSQL(
+                    """
+                    CREATE INDEX index_recordatorios_propietarioUid_eliminadoPendienteSincronizacion
+                    ON recordatorios(
+                        propietarioUid,
+                        eliminadoPendienteSincronizacion
+                    )
+                    """.trimIndent()
+                )
+            }
+        }
+
+        fun obtenerInstancia(
+            context: Context
+        ): RecordatoriosDatabase {
             return INSTANCE ?: synchronized(this) {
                 INSTANCE ?: Room.databaseBuilder(
                     context.applicationContext,
@@ -73,7 +97,8 @@ abstract class RecordatoriosDatabase : RoomDatabase() {
                 )
                     .addMigrations(
                         MIGRATION_1_2,
-                        MIGRATION_2_3
+                        MIGRATION_2_3,
+                        MIGRATION_3_4
                     )
                     .build()
                     .also {

@@ -14,5 +14,6 @@ data class Recordatorio(
     val identificadorRemoto: String? = null,
     val pendienteSincronizacion: Boolean = true,
     val identificadorCliente: String = UUID.randomUUID().toString(),
-    val eliminadoPendienteSincronizacion: Boolean = false
+    val eliminadoPendienteSincronizacion: Boolean = false,
+    val propietarioUid: String? = null
 )

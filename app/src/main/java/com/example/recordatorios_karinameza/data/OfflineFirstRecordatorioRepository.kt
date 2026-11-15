@@ -3,12 +3,12 @@ package com.example.recordatorios_karinameza.data
 import com.example.recordatorios_karinameza.Recordatorio
 import com.example.recordatorios_karinameza.data.local.RecordatorioDao
 import com.example.recordatorios_karinameza.data.local.toDomain
-import com.example.recordatorios_karinameza.data.remote.RemoteRecordatorioRepository
-import com.example.recordatorios_karinameza.data.remote.ResultadoRemoto
-import com.example.recordatorios_karinameza.data.remote.toDto
+import com.example.recordatorios_karinameza.data.local.toEntity
+import com.example.recordatorios_karinameza.data.remote.FirestoreRecordatorioRepository
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 
 data class ResultadoSincronizacion(
     val sincronizados: Int,
@@ -19,7 +19,8 @@ data class ResultadoSincronizacion(
 class OfflineFirstRecordatorioRepository(
     private val local: RoomRecordatorioRepository,
     private val dao: RecordatorioDao,
-    private val remoto: RemoteRecordatorioRepository
+    private val remoto: FirestoreRecordatorioRepository,
+    private val uid: String
 ) : RecordatorioRepository {
 
     override suspend fun obtenerRecordatorios(): List<Recordatorio> {
@@ -30,9 +31,7 @@ class OfflineFirstRecordatorioRepository(
         return local.observarRecordatorios()
     }
 
-    override suspend fun obtenerRecordatorioPorId(
-        id: Int
-    ): Recordatorio? {
+    override suspend fun obtenerRecordatorioPorId(id: Int): Recordatorio? {
         return local.obtenerRecordatorioPorId(id)
     }
 
@@ -58,63 +57,107 @@ class OfflineFirstRecordatorioRepository(
         return local.observarPorEstado(estado)
     }
 
+    suspend fun descargarDesdeFirestore(): Int {
+        require(uid.isNotBlank()) {
+            "El usuario no es válido."
+        }
+
+        val recordatoriosRemotos = remoto.obtenerRecordatorios(uid)
+
+        val identificadoresRemotos = recordatoriosRemotos
+            .map { it.identificadorCliente }
+            .toSet()
+
+        var incorporados = 0
+
+        for (recordatorioRemoto in recordatoriosRemotos) {
+
+            val existente = dao.obtenerPorIdentificadorClienteYUsuario(
+                recordatorioRemoto.identificadorCliente,
+                uid
+            )
+
+            if (existente != null && (
+                        existente.pendienteSincronizacion ||
+                                existente.eliminadoPendienteSincronizacion
+                        )
+            ) {
+                continue
+            }
+
+            val entidad = recordatorioRemoto.copy(
+                id = existente?.id ?: 0,
+                propietarioUid = uid,
+                pendienteSincronizacion = false,
+                eliminadoPendienteSincronizacion = false
+            ).toEntity()
+
+            if (existente == null) {
+                dao.insertar(entidad)
+            } else {
+                dao.actualizar(entidad)
+            }
+
+            incorporados++
+        }
+
+        val registrosLocales = dao.obtenerTodosPorUsuario(uid)
+
+        for (registroLocal in registrosLocales) {
+
+            val existeEnFirestore =
+                registroLocal.identificadorCliente in identificadoresRemotos
+
+            if (
+                !existeEnFirestore &&
+                registroLocal.identificadorRemoto != null &&
+                !registroLocal.pendienteSincronizacion &&
+                !registroLocal.eliminadoPendienteSincronizacion
+            ) {
+                dao.eliminarObsoletoPorUsuario(
+                    id = registroLocal.id,
+                    uid = uid
+                )
+            }
+        }
+
+        return incorporados
+    }
+
+
+    /**
+     * Envía a Firestore los registros locales pendientes
+     * y procesa las eliminaciones pendientes.
+     */
     suspend fun sincronizarPendientes(): ResultadoSincronizacion {
+        require(uid.isNotBlank()) { "El usuario no es válido." }
+
         var sincronizados = 0
         var requiereReintento = false
         var erroresPermanentes = 0
 
-        val pendientes = dao.observarPendientesSincronizacion().first()
+        val pendientes = dao.observarPendientesPorUsuario(uid).first()
 
         for (entity in pendientes) {
             try {
                 val recordatorio = entity.toDomain()
-                val dto = recordatorio.toDto()
 
-                val resultado = if (recordatorio.identificadorRemoto == null) {
-                    remoto.crearRecordatorio(dto)
+                remoto.guardarRecordatorio(
+                    uid = uid,
+                    recordatorio = recordatorio
+                )
+
+                val filasActualizadas = dao.marcarComoSincronizadoPorUsuario(
+                    id = recordatorio.id,
+                    uid = uid,
+                    identificadorRemoto = recordatorio.identificadorCliente,
+                    fechaActualizacion = recordatorio.fechaActualizacion
+                )
+
+                if (filasActualizadas > 0) {
+                    sincronizados++
                 } else {
-                    remoto.actualizarRecordatorio(
-                        recordatorio.identificadorRemoto,
-                        dto
-                    )
-                }
-
-                when (resultado) {
-                    is ResultadoRemoto.Exito -> {
-                        val idRemoto = resultado.datos.id
-                            ?: recordatorio.identificadorRemoto
-
-                        if (idRemoto != null) {
-                            val filasActualizadas =
-                                dao.marcarComoSincronizado(
-                                    id = recordatorio.id,
-                                    identificadorRemoto = idRemoto,
-                                    fechaActualizacion = recordatorio.fechaActualizacion
-                                )
-
-                            if (filasActualizadas > 0) {
-                                sincronizados++
-                            } else {
-                                requiereReintento = true
-                            }
-                        } else {
-                            requiereReintento = true
-                        }
-                    }
-
-                    is ResultadoRemoto.ErrorHttp -> {
-                        if (resultado.reintentable) {
-                            requiereReintento = true
-                        } else {
-                            erroresPermanentes++
-                        }
-                    }
-
-                    is ResultadoRemoto.ErrorConexion,
-                    is ResultadoRemoto.ErrorTimeout,
-                    is ResultadoRemoto.ErrorDesconocido -> {
-                        requiereReintento = true
-                    }
+                    requiereReintento = true
                 }
             } catch (exception: CancellationException) {
                 throw exception
@@ -124,40 +167,27 @@ class OfflineFirstRecordatorioRepository(
         }
 
         val eliminacionesPendientes =
-            dao.observarEliminacionesPendientes().first()
+            dao.observarEliminacionesPendientesPorUsuario(uid).first()
 
         for (entity in eliminacionesPendientes) {
             try {
-                val identificadorRemoto =
-                    entity.identificadorRemoto ?: continue
+                // Si nunca llegó a sincronizarse, no existe en Firestore.
+                if (entity.identificadorRemoto != null) {
+                    remoto.eliminarRecordatorio(
+                        uid = uid,
+                        identificadorCliente = entity.identificadorCliente
+                    )
+                }
 
-                val resultado =
-                    remoto.eliminarRecordatorio(identificadorRemoto)
+                val filasEliminadas = dao.eliminarPorIdYUsuario(
+                    id = entity.id,
+                    uid = uid
+                )
 
-                when (resultado) {
-                    is ResultadoRemoto.Exito -> {
-                        val filasEliminadas = dao.eliminarPorId(entity.id)
-
-                        if (filasEliminadas > 0) {
-                            sincronizados++
-                        } else {
-                            requiereReintento = true
-                        }
-                    }
-
-                    is ResultadoRemoto.ErrorHttp -> {
-                        if (resultado.reintentable) {
-                            requiereReintento = true
-                        } else {
-                            erroresPermanentes++
-                        }
-                    }
-
-                    is ResultadoRemoto.ErrorConexion,
-                    is ResultadoRemoto.ErrorTimeout,
-                    is ResultadoRemoto.ErrorDesconocido -> {
-                        requiereReintento = true
-                    }
+                if (filasEliminadas > 0) {
+                    sincronizados++
+                } else {
+                    requiereReintento = true
                 }
             } catch (exception: CancellationException) {
                 throw exception

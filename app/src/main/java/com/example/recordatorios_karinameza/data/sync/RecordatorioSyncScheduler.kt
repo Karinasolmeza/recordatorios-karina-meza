@@ -1,8 +1,8 @@
 package com.example.recordatorios_karinameza.data.sync
 
 import android.content.Context
-import androidx.work.BackoffPolicy
 import androidx.work.Constraints
+import androidx.work.Data
 import androidx.work.ExistingWorkPolicy
 import androidx.work.NetworkType
 import androidx.work.OneTimeWorkRequestBuilder
@@ -11,26 +11,42 @@ import java.util.concurrent.TimeUnit
 
 object RecordatorioSyncScheduler {
 
-    private const val NOMBRE_TRABAJO = "sincronizacion_recordatorios"
+    fun programar(context: Context, uid: String) {
+        if (uid.isBlank()) return
 
-    fun programar(context: Context) {
-        val constraints = Constraints.Builder()
+        val datos = Data.Builder()
+            .putString(RecordatorioSyncWorker.CLAVE_UID, uid)
+            .build()
+
+        val restricciones = Constraints.Builder()
             .setRequiredNetworkType(NetworkType.CONNECTED)
             .build()
 
-        val request = OneTimeWorkRequestBuilder<RecordatorioSyncWorker>()
-            .setConstraints(constraints)
+        val solicitud = OneTimeWorkRequestBuilder<RecordatorioSyncWorker>()
+            .setInputData(datos)
+            .setConstraints(restricciones)
             .setBackoffCriteria(
-                BackoffPolicy.EXPONENTIAL,
+                androidx.work.BackoffPolicy.EXPONENTIAL,
                 30,
                 TimeUnit.SECONDS
             )
             .build()
 
         WorkManager.getInstance(context).enqueueUniqueWork(
-            NOMBRE_TRABAJO,
+            nombreTrabajo(uid),
             ExistingWorkPolicy.KEEP,
-            request
+            solicitud
         )
+    }
+
+    fun cancelar(context: Context, uid: String) {
+        if (uid.isBlank()) return
+
+        WorkManager.getInstance(context)
+            .cancelUniqueWork(nombreTrabajo(uid))
+    }
+
+    private fun nombreTrabajo(uid: String): String {
+        return "sincronizacion_recordatorios_$uid"
     }
 }

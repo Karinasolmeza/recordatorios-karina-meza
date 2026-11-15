@@ -11,6 +11,9 @@ import java.util.UUID
         Index(
             value = ["identificadorCliente"],
             unique = true
+        ),
+        Index(
+            value = ["propietarioUid", "eliminadoPendienteSincronizacion"]
         )
     ]
 )
@@ -39,5 +42,7 @@ data class RecordatorioEntity(
 
     val pendienteSincronizacion: Boolean = true,
 
-    val eliminadoPendienteSincronizacion: Boolean = false
+    val eliminadoPendienteSincronizacion: Boolean = false,
+
+    val propietarioUid: String? = null
 )

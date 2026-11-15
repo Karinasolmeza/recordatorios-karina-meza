@@ -10,11 +10,10 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.compose.runtime.getValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -42,7 +41,8 @@ sealed class AppRoute(val route: String) {
 
 @Composable
 fun AppNavigation(
-    viewModel: RecordatoriosViewModel
+    viewModel: RecordatoriosViewModel,
+    onCerrarSesion: () -> Unit
 ) {
     val navController = rememberNavController()
 
@@ -60,11 +60,6 @@ fun AppNavigation(
 
     val crudUiState by
     viewModel.crudUiState.collectAsStateWithLifecycle()
-
-    val rutaActual = navController.currentBackStackEntry?.destination?.route
-    val enModoEdicion = remember(rutaActual) {
-        false
-    }
 
     LaunchedEffect(formularioUiState.guardadoExitoso) {
         if (formularioUiState.guardadoExitoso) {
@@ -102,7 +97,9 @@ fun AppNavigation(
                     viewModel.cargarRecordatorios()
                 },
                 onConfiguracion = {
-                    navController.navigate(AppRoute.Configuracion.route)
+                    navController.navigate(
+                        AppRoute.Configuracion.route
+                    )
                 }
             )
         }
@@ -117,7 +114,8 @@ fun AppNavigation(
                     viewModel::actualizarOrdenamiento,
                 onVolver = {
                     navController.popBackStack()
-                }
+                },
+                onCerrarSesion = onCerrarSesion
             )
         }
 
